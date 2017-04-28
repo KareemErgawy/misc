@@ -90,19 +90,22 @@ void parallel_stable_sort_aux(int *xs, int *xe, int *zs, int inplace) {
 // NOTE let's call this normalized parallel region
 #pragma omp parallel
       {
-#pragma omp master
+#pragma omp sections
         {
-#pragma omp task
+#pragma omp section
           { parallel_stable_sort_aux(xs, xm, zs, !inplace); }
-          parallel_stable_sort_aux(xm, xe, zm, !inplace);
-#pragma omp taskwait
+#pragma omp section
+          { parallel_stable_sort_aux(xm, xe, zm, !inplace); }
         }
       }
     } else {
-#pragma omp task
-      { parallel_stable_sort_aux(xs, xm, zs, !inplace); }
-      parallel_stable_sort_aux(xm, xe, zm, !inplace);
-#pragma omp taskwait
+#pragma omp sections
+      {
+#pragma omp section
+        { parallel_stable_sort_aux(xs, xm, zs, !inplace); }
+#pragma omp section
+        { parallel_stable_sort_aux(xm, xe, zm, !inplace); }
+      }
     }
 
     if (inplace)
