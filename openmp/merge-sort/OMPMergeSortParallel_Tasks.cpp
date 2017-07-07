@@ -26,16 +26,14 @@
   WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
   POSSIBILITY OF SUCH DAMAGE.
 */
-#include "OMPMergeSortParallel.h"
+#include "OMPMergeSort.h"
 #include <algorithm>
 #include <iostream>
 #include <iterator>
 #include <omp.h>
 #include <utility>
 
-namespace pss {
-
-namespace internal {
+extern "C" {
 void parallel_merge(int *xs, int *xe, int *ys, int *ye, int *zs, bool destroy) {
   const size_t MERGE_CUT_OFF = 2000;
   if ((xe - xs) + (ye - ys) > MERGE_CUT_OFF) {
@@ -81,8 +79,27 @@ void parallel_stable_sort_aux(int *xs, int *xe, int *zs, int inplace) {
     int *xm = xs + (xe - xs) / 2;
     int *zm = zs + (xm - xs);
     int *ze = zs + (xe - xs);
+    // NOTE let's call this normalized OMP parallel region
+    // For a fork instruction, we need to do the following:
+    //
+    // 1 - If this is a serial execution (i.e. there is only 1 thread), then we
+    // need to start a new OMP parallel region.
+    //
+    // 2 - If this is a parallel region, then no need to start an OMP parallel
+    // region, we just need to schedule new tasks.
+    //
+    // This OMP region is equivalent to the following PIR region:
+    //   fork label %forked, %cont
+    // forked:
+    //   ; LLVM IR code for parallel_stable_sort_aux(xs, xm, zs, !inplace);
+    //   halt label %cont
+    // cont:
+    //   ; LLVM IR code for parallel_stable_sort_aux(xm, xe, zm, !inplace);
+    //   join label %if.inplace
+    //
+    // TODO for now I will assume that the semantics of inner task to taskwait
+    // region has semantics equivalent to that of the entire normalized region.
     if (omp_get_num_threads() == 1) {
-// NOTE let's call this normalized parallel region
 #pragma omp parallel
       {
 #pragma omp master
@@ -106,6 +123,4 @@ void parallel_stable_sort_aux(int *xs, int *xe, int *zs, int inplace) {
       parallel_merge(xs, xm, xm, xe, zs, false);
   }
 }
-
-} // namespace internal
-} // namespace pss
+}

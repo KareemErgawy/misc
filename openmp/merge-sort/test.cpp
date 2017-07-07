@@ -34,7 +34,7 @@
 #define NOMINMAX
 #define _CRT_SECURE_NO_WARNINGS
 
-#include "OMPMergeSortParallel.h"
+#include "OMPMergeSort.h"
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -80,7 +80,7 @@ void Test(size_t n) {
   CreateDataSet(n);
 
   auto ParallelStart = std::chrono::high_resolution_clock::now();
-  pss::parallel_stable_sort(Copy1, Copy1 + n);
+  parallel_stable_sort(Copy1, Copy1 + n);
   auto ParallelEnd = std::chrono::high_resolution_clock::now();
   auto SerialStart = std::chrono::high_resolution_clock::now();
   std::stable_sort(Copy2, Copy2 + n);

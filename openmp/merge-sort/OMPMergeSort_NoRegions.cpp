@@ -26,7 +26,7 @@
   WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
   POSSIBILITY OF SUCH DAMAGE.
 */
-#include "OMPMergeSortParallel.h"
+#include "OMPMergeSort.h"
 #include <algorithm>
 #include <iostream>
 #include <iterator>
@@ -34,9 +34,6 @@
 #include <utility>
 
 extern "C" {
-namespace pss {
-
-namespace internal {
 void parallel_merge(int *xs, int *xe, int *ys, int *ye, int *zs, bool destroy) {
   const size_t MERGE_CUT_OFF = 2000;
   if ((xe - xs) + (ye - ys) > MERGE_CUT_OFF) {
@@ -50,28 +47,8 @@ void parallel_merge(int *xs, int *xe, int *ys, int *ye, int *zs, bool destroy) {
       ym = std::lower_bound(ys, ye, *xm);
     }
 
-    if (omp_get_num_threads() == 1) {
-#pragma omp parallel
-      {
-#pragma omp sections
-        {
-#pragma omp section
-          { parallel_merge(xs, xm, ys, ym, zs, destroy); }
-#pragma omp section
-          {
-            parallel_merge(xm, xe, ym, ye, zs + (xm - xs) + (ym - ys), destroy);
-          }
-        }
-      }
-    } else {
-#pragma omp sections
-      {
-#pragma omp section
-        { parallel_merge(xs, xm, ys, ym, zs, destroy); }
-#pragma omp section
-        { parallel_merge(xm, xe, ym, ye, zs + (xm - xs) + (ym - ys), destroy); }
-      }
-    }
+    parallel_merge(xs, xm, ys, ym, zs, destroy);
+    parallel_merge(xm, xe, ym, ye, zs + (xm - xs) + (ym - ys), destroy);
   } else {
     serial_merge(xs, xe, ys, ye, zs);
   }
@@ -87,27 +64,8 @@ void parallel_stable_sort_aux(int *xs, int *xe, int *zs, int inplace) {
     int *xm = xs + (xe - xs) / 2;
     int *zm = zs + (xm - xs);
     int *ze = zs + (xe - xs);
-    if (omp_get_num_threads() == 1) {
-// NOTE let's call this normalized parallel region
-#pragma omp parallel
-      {
-#pragma omp sections
-        {
-#pragma omp section
-          { parallel_stable_sort_aux(xs, xm, zs, !inplace); }
-#pragma omp section
-          { parallel_stable_sort_aux(xm, xe, zm, !inplace); }
-        }
-      }
-    } else {
-#pragma omp sections
-      {
-#pragma omp section
-        { parallel_stable_sort_aux(xs, xm, zs, !inplace); }
-#pragma omp section
-        { parallel_stable_sort_aux(xm, xe, zm, !inplace); }
-      }
-    }
+    parallel_stable_sort_aux(xs, xm, zs, !inplace);
+    parallel_stable_sort_aux(xm, xe, zm, !inplace);
 
     if (inplace)
       parallel_merge(zs, zm, zm, ze, xs, inplace == 2);
@@ -115,7 +73,4 @@ void parallel_stable_sort_aux(int *xs, int *xe, int *zs, int inplace) {
       parallel_merge(xs, xm, xm, xe, zs, false);
   }
 }
-
-} // namespace internal
-} // namespace pss
 }
